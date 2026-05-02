@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>Görevlerim</title>
+<title>TasX</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
@@ -110,11 +110,11 @@
 <div class="app">
   <div class="header">
     <div class="header-left">
-      <h1>Görevlerim</h1>
+      <h1>TasX</h1>
       <p id="subtitle">0 aktif görev</p>
     </div>
     <div class="header-right">
-      <button class="icon-btn" id="reset-btn" title="Sıfırla">🗑️</button>
+      <button class="icon-btn" id="reset-btn" title="Sıfırla">🔄</button>
       <button class="icon-btn" id="theme-btn" title="Tema">☀️</button>
     </div>
   </div>
@@ -136,9 +136,9 @@
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <h2>Sıfırla</h2>
-    <p>Tüm görevler kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
+    <p>Tamamlanan ve iptal edilen tüm görevler aktife taşınacak.</p>
     <div class="modal-btns">
-      <button class="btn-danger" id="modal-confirm">Tümünü Sil</button>
+      <button class="btn-neutral" id="modal-confirm">Tümünü Aktife Al</button>
       <button class="btn-neutral" id="modal-cancel">Vazgeç</button>
     </div>
   </div>
@@ -147,7 +147,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const TASKS_KEY='gvlr_v6';
+const TASKS_KEY='gvlr_v8';
 let tasks=[], currentTab='active';
 let audioCtx=null;
 
@@ -195,19 +195,27 @@ document.getElementById('reset-btn').addEventListener('click',()=>document.getEl
 document.getElementById('modal-cancel').addEventListener('click',()=>document.getElementById('modal').classList.remove('open'));
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');});
 document.getElementById('modal-confirm').addEventListener('click',()=>{
-  tasks=[];saveTasks();
+  let maxO=tasks.filter(t=>t.status==='active').reduce((m,t)=>Math.max(m,t.order||0),-1);
+  tasks.filter(t=>t.status!=='active').forEach(t=>{t.status='active';t.order=t.fixedOrder!=null?t.fixedOrder:++maxO;});
+  saveTasks();
   document.getElementById('modal').classList.remove('open');
-  render();showToast('🗑️ Tüm görevler silindi');
+  currentTab='active';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('[data-tab="active"]').classList.add('active');
+  render();showToast('🔄 Tüm görevler aktife alındı');
 });
 
 function loadTasks(){
   try{const r=localStorage.getItem(TASKS_KEY);if(r)tasks=JSON.parse(r);}catch(e){}
   if(!tasks.length){
     tasks=[
-      {id:1,text:'NUP analizini tamamla',date:'Bugün',status:'active',order:0},
-      {id:2,text:'ClickUp görevlerini güncelle',date:'Bu hafta',status:'active',order:1},
-      {id:3,text:'Spor salonu – pull-up serisi',date:'Salı',status:'active',order:2},
-      {id:4,text:'LinkedIn profil taslağı',date:'Bu hafta',status:'active',order:3},
+      {id:1,text:'Dişlerini Fırçala',date:'Bugün',status:'active',order:0,fixedOrder:0},
+      {id:2,text:'İlacını al',date:'Bugün',status:'active',order:1,fixedOrder:1},
+      {id:3,text:'Dişlerini Fırçala',date:'Bugün',status:'active',order:2,fixedOrder:2},
+      {id:4,text:'Ayakkabılarını sil',date:'Bugün',status:'active',order:3,fixedOrder:3},
+      {id:5,text:'Traş ol',date:'Bugün',status:'active',order:4,fixedOrder:4},
+      {id:6,text:'Krem sür',date:'Bugün',status:'active',order:5,fixedOrder:5},
+      {id:7,text:'Burnuna sprey sık',date:'Bugün',status:'active',order:6,fixedOrder:6},
     ];
     saveTasks();
   }
@@ -230,17 +238,18 @@ function render(){
     return;
   }
   const restoreHint=currentTab!=='active'?'<div class="restore-hint">← Sola kaydırarak aktife alabilirsin</div>':'';
-  list.innerHTML=filtered.map(taskHTML).join('')+restoreHint;
+  list.innerHTML=filtered.map((t,i)=>taskHTML(t,i+1)).join('')+restoreHint;
   if(currentTab==='active'){attachSwipe();attachDrag();attachEditAndDelete();}
   else{attachRestoreSwipe();}
 }
 
-function taskHTML(t){
+function taskHTML(t, num){
   const done=t.status==='done',cancelled=t.status==='cancelled',active=t.status==='active';
   let cc='',ci='';
   if(done){cc='done';ci='✓';}else if(cancelled){cc='cancelled';ci='✕';}
   const handle=active?`<div class="drag-handle" data-id="${t.id}"><span></span><span></span><span></span></div>`:'';
   const delBtn=active?`<button class="del-btn" data-id="${t.id}">✕</button>`:'';
+  const numBadge=`<span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);min-width:16px;text-align:right;flex-shrink:0">${t.fixedOrder!=null?t.fixedOrder+1:num}</span>`;
 
   const hints=active
     ?`<div class="hint-bg hint-done"><span class="hint-icon">✓</span></div>
@@ -251,6 +260,7 @@ function taskHTML(t){
     ${hints}
     <div class="item" id="item-${t.id}">
       ${handle}
+      ${numBadge}
       <div class="check-circle ${cc}">${ci}</div>
       <div class="item-body">
         <div class="item-text ${done||cancelled?'crossed':''}" id="txt-${t.id}"
@@ -276,6 +286,11 @@ function attachEditAndDelete(){
   document.querySelectorAll('.del-btn').forEach(btn=>{
     btn.addEventListener('click',e=>{e.stopPropagation();deleteTask(+btn.dataset.id);});
     btn.addEventListener('touchend',e=>{e.stopPropagation();deleteTask(+btn.dataset.id);});
+  });
+  document.querySelectorAll('#list .check-circle').forEach(circle=>{
+    const id=+circle.closest('[data-id]').dataset.id;
+    circle.style.cursor='pointer';
+    circle.addEventListener('click',e=>{e.stopPropagation();flyOut(id,'done');});
   });
 }
 
@@ -391,8 +406,8 @@ function restoreTask(id){
     const task=tasks.find(t=>t.id===id);
     if(task){
       task.status='active';
-      const maxO=tasks.filter(t=>t.status==='active').reduce((m,t)=>Math.max(m,t.order||0),-1);
-      task.order=maxO+1;saveTasks();
+      task.order=task.fixedOrder!=null?task.fixedOrder:tasks.filter(t=>t.status==='active').reduce((m,t)=>Math.max(m,t.order||0),-1)+1;
+      saveTasks();
     }
     render();showToast('↩ Aktife alındı');
   },620);
@@ -457,7 +472,7 @@ function startDrag(cx,cy,id){
         const[m]=fresh.splice(fi,1);
         if(dropPos==='after')ti=ti+(fi<ti?0:1);else if(fi<ti)ti--;
         fresh.splice(ti,0,m);
-        fresh.forEach((t,i)=>{const tk=tasks.find(x=>x.id===t.id);if(tk)tk.order=i;});
+        fresh.forEach((t,i)=>{const tk=tasks.find(x=>x.id===t.id);if(tk){tk.order=i;tk.fixedOrder=i;}});
         saveTasks();
       }
     }
@@ -480,7 +495,7 @@ function addTask(){
   const inp=document.getElementById('new-task');
   const text=inp.value.trim();if(!text)return;
   const maxO=tasks.filter(t=>t.status==='active').reduce((m,t)=>Math.max(m,t.order||0),-1);
-  tasks.unshift({id:Date.now(),text,date:'Bugün',status:'active',order:maxO+1});
+  tasks.unshift({id:Date.now(),text,date:'Bugün',status:'active',order:maxO+1,fixedOrder:maxO+1});
   saveTasks();inp.value='';
   if(currentTab!=='active'){
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
