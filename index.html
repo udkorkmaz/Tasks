@@ -147,11 +147,27 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const TASKS_KEY='gvlr_v8';
+const TASKS_KEY='gvlr_v9';
 let tasks=[], currentTab='active';
 let audioCtx=null;
 
-function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function getCtx(){
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
+
+// iOS ses kilidini ilk dokunuşta aç
+function unlockAudio(){
+  if(audioCtx&&audioCtx.state!=='suspended')return;
+  const ctx=getCtx();
+  const buf=ctx.createBuffer(1,1,22050);
+  const src=ctx.createBufferSource();
+  src.buffer=buf;src.connect(ctx.destination);src.start(0);
+  ctx.resume().catch(()=>{});
+}
+document.addEventListener('touchstart',unlockAudio,{once:true});
+document.addEventListener('touchend',unlockAudio,{once:true});
 function playDone(){
   try{const ctx=getCtx(),t=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();
   o.connect(g);g.connect(ctx.destination);o.type='sine';
@@ -195,8 +211,7 @@ document.getElementById('reset-btn').addEventListener('click',()=>document.getEl
 document.getElementById('modal-cancel').addEventListener('click',()=>document.getElementById('modal').classList.remove('open'));
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');});
 document.getElementById('modal-confirm').addEventListener('click',()=>{
-  let maxO=tasks.filter(t=>t.status==='active').reduce((m,t)=>Math.max(m,t.order||0),-1);
-  tasks.filter(t=>t.status!=='active').forEach(t=>{t.status='active';t.order=t.fixedOrder!=null?t.fixedOrder:++maxO;});
+  tasks.filter(t=>t.status!=='active').forEach(t=>{t.status='active';});
   saveTasks();
   document.getElementById('modal').classList.remove('open');
   currentTab='active';
@@ -249,7 +264,6 @@ function taskHTML(t, num){
   if(done){cc='done';ci='✓';}else if(cancelled){cc='cancelled';ci='✕';}
   const handle=active?`<div class="drag-handle" data-id="${t.id}"><span></span><span></span><span></span></div>`:'';
   const delBtn=active?`<button class="del-btn" data-id="${t.id}">✕</button>`:'';
-  const numBadge=`<span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);min-width:16px;text-align:right;flex-shrink:0">${t.fixedOrder!=null?t.fixedOrder+1:num}</span>`;
 
   const hints=active
     ?`<div class="hint-bg hint-done"><span class="hint-icon">✓</span></div>
@@ -260,7 +274,6 @@ function taskHTML(t, num){
     ${hints}
     <div class="item" id="item-${t.id}">
       ${handle}
-      ${numBadge}
       <div class="check-circle ${cc}">${ci}</div>
       <div class="item-body">
         <div class="item-text ${done||cancelled?'crossed':''}" id="txt-${t.id}"
@@ -406,7 +419,7 @@ function restoreTask(id){
     const task=tasks.find(t=>t.id===id);
     if(task){
       task.status='active';
-      task.order=task.fixedOrder!=null?task.fixedOrder:tasks.filter(t=>t.status==='active').reduce((m,t)=>Math.max(m,t.order||0),-1)+1;
+      // order hiç değişmemiş, doğrudan kullan — sürüklenmediyse orijinal pozisyona girer
       saveTasks();
     }
     render();showToast('↩ Aktife alındı');
@@ -494,8 +507,8 @@ document.getElementById('new-task').addEventListener('keydown',e=>{if(e.key==='E
 function addTask(){
   const inp=document.getElementById('new-task');
   const text=inp.value.trim();if(!text)return;
-  const maxO=tasks.filter(t=>t.status==='active').reduce((m,t)=>Math.max(m,t.order||0),-1);
-  tasks.unshift({id:Date.now(),text,date:'Bugün',status:'active',order:maxO+1,fixedOrder:maxO+1});
+  const maxO=tasks.reduce((m,t)=>Math.max(m,t.order||0),-1);
+  tasks.unshift({id:Date.now(),text,date:'Bugün',status:'active',order:maxO+1});
   saveTasks();inp.value='';
   if(currentTab!=='active'){
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
