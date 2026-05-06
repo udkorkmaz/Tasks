@@ -115,6 +115,7 @@
     </div>
     <div class="header-right">
       <button class="icon-btn" id="reset-btn" title="Sıfırla">🔄</button>
+      <button class="icon-btn" id="edit-btn" title="Sıralamayı Düzenle">✏️</button>
       <button class="icon-btn" id="theme-btn" title="Tema">☀️</button>
     </div>
   </div>
@@ -147,8 +148,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const TASKS_KEY='gvlr_v9';
-let tasks=[], currentTab='active';
+const TASKS_KEY='gvlr_v10';
+let tasks=[], currentTab='active', editMode=false;
 let audioCtx=null;
 
 function getCtx(){
@@ -207,30 +208,66 @@ function applyTheme(){
 applyTheme();
 document.getElementById('theme-btn').addEventListener('click',()=>{dark=!dark;applyTheme();});
 
-document.getElementById('reset-btn').addEventListener('click',()=>document.getElementById('modal').classList.add('open'));
-document.getElementById('modal-cancel').addEventListener('click',()=>document.getElementById('modal').classList.remove('open'));
-document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))document.getElementById('modal').classList.remove('open');});
+document.getElementById('edit-btn').addEventListener('click',()=>{
+  editMode=!editMode;
+  const btn=document.getElementById('edit-btn');
+  btn.textContent=editMode?'✅':'✏️';
+  btn.style.background=editMode?'var(--blue)':'';
+  btn.style.color=editMode?'#fff':'';
+  btn.style.borderColor=editMode?'var(--blue)':'';
+  render();
+  if(editMode)showToast('Sıralama modu açık — sürükle');
+});
+
+document.getElementById('reset-btn').addEventListener('click',()=>{
+  pendingDeleteId=null;
+  document.querySelector('#modal h2').textContent='Sıfırla';
+  document.querySelector('#modal p').textContent='Tamamlanan ve iptal edilen tüm görevler aktife taşınacak.';
+  document.getElementById('modal-confirm').textContent='Tümünü Aktife Al';
+  document.getElementById('modal-confirm').className='btn-neutral';
+  document.getElementById('modal').classList.add('open');
+});
+document.getElementById('modal-cancel').addEventListener('click',()=>{pendingDeleteId=null;document.getElementById('modal').classList.remove('open');});
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal')){pendingDeleteId=null;document.getElementById('modal').classList.remove('open');}});
 document.getElementById('modal-confirm').addEventListener('click',()=>{
-  tasks.filter(t=>t.status!=='active').forEach(t=>{t.status='active';});
-  saveTasks();
-  document.getElementById('modal').classList.remove('open');
-  currentTab='active';
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelector('[data-tab="active"]').classList.add('active');
-  render();showToast('🔄 Tüm görevler aktife alındı');
+  if(pendingDeleteId){
+    const id=pendingDeleteId;pendingDeleteId=null;
+    document.getElementById('modal').classList.remove('open');
+    doDeleteTask(id);
+  } else {
+    tasks.filter(t=>t.status!=='active').forEach(t=>{t.status='active';});
+    saveTasks();
+    document.getElementById('modal').classList.remove('open');
+    currentTab='active';
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector('[data-tab="active"]').classList.add('active');
+    render();showToast('🔄 Tüm görevler aktife alındı');
+  }
 });
 
 function loadTasks(){
   try{const r=localStorage.getItem(TASKS_KEY);if(r)tasks=JSON.parse(r);}catch(e){}
   if(!tasks.length){
     tasks=[
-      {id:1,text:'Dişlerini Fırçala',date:'Bugün',status:'active',order:0,fixedOrder:0},
-      {id:2,text:'İlacını al',date:'Bugün',status:'active',order:1,fixedOrder:1},
-      {id:3,text:'Dişlerini Fırçala',date:'Bugün',status:'active',order:2,fixedOrder:2},
-      {id:4,text:'Ayakkabılarını sil',date:'Bugün',status:'active',order:3,fixedOrder:3},
-      {id:5,text:'Traş ol',date:'Bugün',status:'active',order:4,fixedOrder:4},
-      {id:6,text:'Krem sür',date:'Bugün',status:'active',order:5,fixedOrder:5},
-      {id:7,text:'Burnuna sprey sık',date:'Bugün',status:'active',order:6,fixedOrder:6},
+      {id:1,text:'Duş Al-Sabah',date:'Bugün',status:'active',order:0},
+      {id:2,text:'Med-Sabah',date:'Bugün',status:'active',order:1},
+      {id:3,text:'Parmak Bas',date:'Bugün',status:'active',order:2},
+      {id:4,text:'Dişlerini Fırçala-Sabah',date:'Bugün',status:'active',order:3},
+      {id:5,text:'Kreatinli Su Hazırla',date:'Bugün',status:'active',order:4},
+      {id:6,text:'İlacını Al',date:'Bugün',status:'active',order:5},
+      {id:7,text:'Dişlerini Fırçala-Öğle',date:'Bugün',status:'active',order:6},
+      {id:8,text:'Med-Öğle',date:'Bugün',status:'active',order:7},
+      {id:9,text:'Ayakkabılarını sil',date:'Bugün',status:'active',order:8},
+      {id:10,text:'Duş Al-Akşam',date:'Bugün',status:'active',order:9},
+      {id:11,text:'Dişlerini Fırçala-Akşam',date:'Bugün',status:'active',order:10},
+      {id:12,text:'Med-Akşam',date:'Bugün',status:'active',order:11},
+      {id:13,text:'Burnuna sprey sık',date:'Bugün',status:'active',order:12},
+      {id:14,text:'Krem sür',date:'Bugün',status:'active',order:13},
+      {id:15,text:'Sayfa-1',date:'Bugün',status:'active',order:14},
+      {id:16,text:'Sayfa-2',date:'Bugün',status:'active',order:15},
+      {id:17,text:'Traş ol',date:'Bugün',status:'active',order:16},
+      {id:18,text:'Kolonya Sür',date:'Bugün',status:'active',order:17},
+      {id:19,text:'Banyonun Işığını Aç',date:'Bugün',status:'active',order:18},
     ];
     saveTasks();
   }
@@ -254,7 +291,7 @@ function render(){
   }
   const restoreHint=currentTab!=='active'?'<div class="restore-hint">← Sola kaydırarak aktife alabilirsin</div>':'';
   list.innerHTML=filtered.map((t,i)=>taskHTML(t,i+1)).join('')+restoreHint;
-  if(currentTab==='active'){attachSwipe();attachDrag();attachEditAndDelete();}
+  if(currentTab==='active'){if(!editMode)attachSwipe();attachEditAndDelete();if(editMode)attachDrag();}
   else{attachRestoreSwipe();}
 }
 
@@ -262,7 +299,7 @@ function taskHTML(t, num){
   const done=t.status==='done',cancelled=t.status==='cancelled',active=t.status==='active';
   let cc='',ci='';
   if(done){cc='done';ci='✓';}else if(cancelled){cc='cancelled';ci='✕';}
-  const handle=active?`<div class="drag-handle" data-id="${t.id}"><span></span><span></span><span></span></div>`:'';
+  const handle=active&&editMode?`<div class="drag-handle" data-id="${t.id}"><span></span><span></span><span></span></div>`:'';
   const delBtn=active?`<button class="del-btn" data-id="${t.id}">✕</button>`:'';
 
   const hints=active
@@ -326,7 +363,18 @@ function startEdit(el){
   el.addEventListener('blur',finish);el.addEventListener('keydown',onKey);
 }
 
+let pendingDeleteId=null;
 function deleteTask(id){
+  const task=tasks.find(t=>t.id===id);
+  if(!task)return;
+  pendingDeleteId=id;
+  document.querySelector('#modal h2').textContent='Görevi Sil';
+  document.querySelector('#modal p').textContent=`"${task.text}" silinecek. Bu işlem geri alınamaz.`;
+  document.getElementById('modal-confirm').textContent='Sil';
+  document.getElementById('modal-confirm').className='btn-danger';
+  document.getElementById('modal').classList.add('open');
+}
+function doDeleteTask(id){
   const wrap=document.getElementById('wrap-'+id);
   const item=document.getElementById('item-'+id);
   if(!wrap||!item)return;
@@ -426,11 +474,44 @@ function restoreTask(id){
   },620);
 }
 
+function launchFireworks(el){
+  const rect=el.getBoundingClientRect();
+  const cx=rect.left+rect.width/2;
+  const cy=rect.top+rect.height/2;
+  const colors=['#FFD700','#FF6B6B','#4ADE80','#60A5FA','#F472B6','#FB923C','#A78BFA'];
+  const count=28;
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');
+    const color=colors[i%colors.length];
+    const angle=(i/count)*Math.PI*2;
+    const speed=90+Math.random()*80;
+    const size=Math.random()<0.5?6:4;
+    const isRect=Math.random()<0.5;
+    p.style.cssText=`position:fixed;z-index:9998;pointer-events:none;
+      left:${cx}px;top:${cy}px;
+      width:${isRect?size*1.5:size}px;height:${size}px;
+      border-radius:${isRect?'2px':'50%'};
+      background:${color};
+      transform:translate(-50%,-50%) rotate(${Math.random()*360}deg);
+      transition:none;`;
+    document.body.appendChild(p);
+    const tx=Math.cos(angle)*speed*(0.7+Math.random()*0.6);
+    const ty=Math.sin(angle)*speed*(0.7+Math.random()*0.6)-60;
+    const rot=Math.random()*720-360;
+    requestAnimationFrame(()=>{
+      p.style.transition=`transform 0.7s cubic-bezier(0.2,0.8,0.4,1), opacity 0.7s ease-in`;
+      p.style.transform=`translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) rotate(${rot}deg)`;
+      p.style.opacity='0';
+    });
+    setTimeout(()=>p.remove(),750);
+  }
+}
+
 function flyOut(id,newStatus){
   const el=document.getElementById('item-'+id);
   const wrap=document.getElementById('wrap-'+id);
   if(!el||!wrap)return;
-  if(newStatus==='done'){playDone();showToast('✓ Tamamlandı');}
+  if(newStatus==='done'){playDone();showToast('✓ Tamamlandı');launchFireworks(el);}
   else{playCancel();showToast('✕ İptal edildi');}
   const dir=newStatus==='done'?1:-1;
   el.style.transition='transform 0.32s cubic-bezier(0.4,0,0.2,1),opacity 0.32s';
